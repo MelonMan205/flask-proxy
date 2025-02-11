@@ -1,0 +1,1 @@
+TARGET_URL = "https://key2question.duckdns.org"
