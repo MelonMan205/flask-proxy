@@ -4,11 +4,16 @@ import requests
 import json
 import os
 from turl import TARGET_URL
+import mimetypes
 
 app = Flask(__name__, static_folder=None)
 CORS(app)
 
 TARGET_URL = TARGET_URL
+
+# Ensure proper MIME types are registered
+mimetypes.add_type('text/css', '.css')
+mimetypes.add_type('image/x-icon', '.ico')
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>', methods=['GET', 'POST'])
@@ -17,7 +22,13 @@ def proxy(path):
     target = f"{TARGET_URL}/{path}"
     
     # Forward the request headers
-    headers = {key: value for key, value in request.headers if key != 'Host'}
+    headers = {key: value for key, value in request.headers if key.lower() not in ['host', 'content-length']}
+    
+    # Add Accept header for CSS files
+    if path.endswith('.css'):
+        headers['Accept'] = 'text/css'
+    elif path.endswith('.ico'):
+        headers['Accept'] = 'image/x-icon'
     
     try:
         # Forward the request with the same method and data
@@ -37,15 +48,24 @@ def proxy(path):
             status=response.status_code
         )
         
-        # Forward response headers
+        # Forward ALL response headers except a select few
         excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
-        headers = [(name, value) for (name, value) in response.headers.items()
-                  if name.lower() not in excluded_headers]
         
-        # Preserve Content-Type header
-        for header, value in headers:
-            proxy_response.headers[header] = value
-                
+        # Copy all headers from the original response
+        for name, value in response.headers.items():
+            if name.lower() not in excluded_headers:
+                proxy_response.headers[name] = value
+        
+        # Ensure proper content type for static files
+        if path.endswith('.css'):
+            proxy_response.headers['Content-Type'] = 'text/css'
+        elif path.endswith('.ico'):
+            proxy_response.headers['Content-Type'] = 'image/x-icon'
+            
+        # Add CORS headers for static files
+        if path.endswith(('.css', '.ico', '.js')):
+            proxy_response.headers['Access-Control-Allow-Origin'] = '*'
+        
         return proxy_response
         
     except requests.RequestException as e:
