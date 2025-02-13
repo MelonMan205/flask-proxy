@@ -1,23 +1,16 @@
-FROM python:3.10-slim
+FROM nginx:alpine
 
-WORKDIR /app
+# Install envsubst
+RUN apk add --no-cache gettext
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+# Remove default Nginx config
+RUN rm /etc/nginx/conf.d/default.conf
 
-COPY . .
+# Copy our Nginx config
+COPY nginx.conf /etc/nginx/nginx.template
 
-ENV PORT 8080
+# Use environment variable in nginx.conf and start nginx
+CMD ["/bin/sh", "-c", "envsubst '${TARGET_URL}' < /etc/nginx/nginx.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"]
 
-CMD exec gunicorn --bind :$PORT \
-    --workers 4 \
-    --threads 8 \
-    --timeout 300 \
-    --keep-alive 5 \
-    --worker-class=gthread \
-    --limit-request-line 8190 \
-    --limit-request-fields 1000 \
-    --limit-request-field_size 8190 \
-    --max-requests 1000 \
-    --max-requests-jitter 50 \
-    proxy:app 
+# Expose port 8080 for Cloud Run
+EXPOSE 8080 
