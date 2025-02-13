@@ -9,9 +9,7 @@ RUN rm /etc/nginx/conf.d/default.conf
 # Copy our Nginx config
 COPY nginx.conf /etc/nginx/nginx.template
 
-# Create healthcheck
-HEALTHCHECK --interval=5s --timeout=3s \
-    CMD curl -f http://localhost:8080/health || exit 1
+
 
 # Use environment variable in nginx.conf and start nginx
 CMD ["/bin/sh", "-c", "envsubst '${TARGET_URL}' < /etc/nginx/nginx.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"]
